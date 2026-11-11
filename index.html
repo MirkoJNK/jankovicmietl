@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETL Exercise - Mirko Jankovic</title>
+</head>
+<body>
+    <h1>Mirko Jankovic</h1>
+    <p><b><i>IT 3206N | T TH 12:30-3:00</i></b></p>
+    <br>
+    <h1>ETL Exercise</h1>
+
+    <h2>1. Upload Source CSV Files</h2>
+    <p>Student Information System (SIS):</p>
+    <input type="file" id="sisFile" accept=".csv">
+    <p>Learning Management System (LMS):</p>
+    <input type="file" id="lmsFile" accept=".csv">
+    <p>Accounting System:</p>
+    <input type="file" id="accountingFile" accept=".csv">
+    <p><button onclick="runETL()">RUN ETL</button></p>
+    <p id="message">Upload the three CSV files and click RUN ETL.</p>
+
+    <h2>2. JSON Output</h2>
+    <pre id="jsonOutput">Upload the CSV files and click RUN ETL.</pre>
+    <button id="downloadButton" onclick="downloadJSON()" disabled>Download JSON</button>
+
+    <script>
+        let integratedData = [];
+
+        const programs = {
+            BSIT: "Bachelor of Science in Information Technology",
+            BSCS: "Bachelor of Science in Computer Science",
+            BSIS: "Bachelor of Science in Information Systems"
+        };
+
+        function parseCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            const headings = lines.shift().split(",").map(value => value.trim());
+            return lines.filter(line => line.trim()).map(line => {
+                const values = line.split(",").map(value => value.trim());
+                const row = {};
+                headings.forEach((heading, index) => row[heading] = values[index] || "");
+                return row;
+            });
+        }
+
+        function properCase(text) {
+            return text.trim().toLowerCase().split(/\s+/).map(word =>
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(" ");
+        }
+
+        function gradeValue(value) {
+            const grade = value.trim();
+            if (grade === "") return null;
+            return isNaN(Number(grade)) ? grade.toUpperCase() : Number(grade);
+        }
+
+        async function runETL() {
+            const sisFile = document.getElementById("sisFile").files[0];
+            const lmsFile = document.getElementById("lmsFile").files[0];
+            const accountingFile = document.getElementById("accountingFile").files[0];
+            const message = document.getElementById("message");
+            const output = document.getElementById("jsonOutput");
+            document.getElementById("downloadButton").disabled = true;
+            integratedData = [];
+
+            if (!sisFile || !lmsFile || !accountingFile) {
+                message.textContent = "Please select all three CSV files.";
+                output.textContent = "Upload the CSV files and click RUN ETL.";
+                return;
+            }
+
+            try {
+                const sis = parseCSV(await sisFile.text());
+                const lms = parseCSV(await lmsFile.text());
+                const accounting = parseCSV(await accountingFile.text());
+                const lmsById = new Map(lms.map(row => [Number(row.student_id), row]));
+                const accountingById = new Map(accounting.map(row => [Number(row.student_id), row]));
+
+                integratedData = sis.map(student => {
+                    const studentId = Number(student.student_id);
+                    const course = lmsById.get(studentId);
+                    const account = accountingById.get(studentId);
+                    const programCode = student.program_code.trim().toUpperCase();
+                    return {
+                        studentId: studentId,
+                        studentName: properCase(student.student_name),
+                        program: programs[programCode] || programCode,
+                        emailAddress: student.email.trim().toLowerCase(),
+                        lms: course ? {
+                            courseCode: course.course_code.trim().toUpperCase(),
+                            finalGrade: gradeValue(course.final_grade),
+                            completionStatus: properCase(course.completion_status)
+                        } : null,
+                        accounting: account ? {
+                            outstandingBalance: account.account_balance.trim() === "" ? null : Number(account.account_balance.trim()),
+                            currency: account.currency.trim().toUpperCase()
+                        } : null
+                    };
+                });
+
+                output.textContent = JSON.stringify(integratedData, null, 2);
+                message.textContent = "ETL completed successfully. " + integratedData.length + " students processed.";
+                document.getElementById("downloadButton").disabled = false;
+            } catch (error) {
+                output.textContent = "Could not process the CSV files.";
+                message.textContent = error.message;
+            }
+        }
+
+        function downloadJSON() {
+            const blob = new Blob([JSON.stringify(integratedData, null, 2)], {type: "application/json"});
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "integrated_data.json";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+    </script>
+</body>
+</html>

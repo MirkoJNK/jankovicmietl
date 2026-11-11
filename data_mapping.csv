@@ -1,0 +1,12 @@
+Source System,Source Field,Target Field,Target Type,Transformation / Rule
+SIS,student_id,studentId,Integer,Convert to integer; use as unique identifier.
+SIS,student_name,studentName,String,Trim spaces and convert to proper case.
+SIS,program_code,program,String,"Trim, uppercase, and map to full program name."
+SIS,email,emailAddress,String,Trim and convert to lowercase.
+LMS,student_id,studentId (join key),Integer,Convert to integer; match with SIS studentId.
+LMS,course_code,lms.courseCode,String,Trim and uppercase; lms is null if LMS record is missing.
+LMS,final_grade,lms.finalGrade,Number or String,Convert numeric grades to number; keep INC as string; lms is null if LMS record is missing.
+LMS,completion_status,lms.completionStatus,String,Trim and normalize capitalization; lms is null if LMS record is missing.
+Accounting,student_id,studentId (join key),Integer,Convert to integer; match with SIS studentId.
+Accounting,account_balance,accounting.outstandingBalance,Number,Trim and convert to number; accounting is null if Accounting record is missing.
+Accounting,currency,accounting.currency,String,Trim and uppercase; accounting is null if Accounting record is missing.
